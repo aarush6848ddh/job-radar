@@ -1,0 +1,75 @@
+companies:                                                                                                                                             
+    - name: Stripe                                                                                                                                       
+      platform: greenhouse                                                                                                                               
+      slug: stripe                                                                                                                                       
+      verified: false                                                                                                                                    
+
+    - name: Databricks
+      platform: greenhouse
+      slug: databricks
+      verified: false
+
+    - name: Figma
+      platform: greenhouse
+      slug: figma
+      verified: false
+
+    - name: Ramp
+      platform: greenhouse
+      slug: ramp
+      verified: false
+
+    - name: Plaid
+      platform: greenhouse
+      slug: plaid
+      verified: false
+
+    - name: Notion
+      platform: lever
+      slug: notion
+      verified: false
+
+    - name: Anduril
+      platform: greenhouse
+      slug: andurilindustries
+      verified: false
+
+    - name: Scale AI
+      platform: ashby
+      slug: scaleai
+      verified: false
+
+    - name: Cloudflare
+      platform: greenhouse
+      slug: cloudflare
+      verified: false
+
+    - name: Anthropic
+      platform: greenhouse
+      slug: anthropic
+      verified: false
+
+    - name: OpenAI
+      platform: greenhouse
+      slug: openai
+      verified: false
+
+    - name: Confluent
+      platform: greenhouse
+      slug: confluent
+      verified: false
+
+    - name: Palantir
+      platform: greenhouse
+      slug: palantir
+      verified: false
+
+    - name: Airbnb
+      platform: greenhouse
+      slug: airbnb
+      verified: false
+
+    - name: DoorDash
+      platform: greenhouse
+      slug: doordash
+      verified: false
