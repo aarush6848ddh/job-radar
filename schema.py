@@ -1,3 +1,6 @@
+# Unified posting schema - every source normalizes into this shape.
+# make_posting_id hashes company+title+location for deterministic dedup.
+
 from dataclasses import dataclass, asdict
 from typing import Optional
 import hashlib

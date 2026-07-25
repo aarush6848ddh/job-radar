@@ -1,0 +1,9 @@
+repos:
+    - repo: SimplifyJobs/Summer2026-Internships
+      branch: dev
+
+    - repo: speedyapply/2027-SWE-College-Jobs
+      branch: main
+
+    - repo: speedyapply/2027-AI-College-Jobs
+      branch: main
