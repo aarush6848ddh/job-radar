@@ -1,3 +1,4 @@
+import re
 import requests
 import logging
 from schema import Posting, make_posting_id
@@ -9,10 +10,11 @@ from schema import Posting, make_posting_id
 logger = logging.getLogger(__name__)
 
 TITLE_KEYWORDS = ["intern", "internship", "co-op", "coop", "university", "campus"]
+# word-boundary match so "intern" hits "Software Intern" but not "International"
+_TITLE_RE = re.compile(r"\b(" + "|".join(TITLE_KEYWORDS) + r")\b", re.IGNORECASE)
 
 def _title_matches(title: str) -> bool:
-    lower = title.lower()
-    return any(kw in lower for kw in TITLE_KEYWORDS)
+    return bool(_TITLE_RE.search(title))
 
 def fetch_greenhouse(company: str, slug: str) -> list[Posting]:
     url = f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"

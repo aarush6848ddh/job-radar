@@ -1,9 +1,9 @@
 repos:
-    - repo: SimplifyJobs/Summer2026-Internships
-      branch: dev
-
+    # TODO: add SimplifyJobs/Summer2027-Internships once the repo exists (not created yet as of 2026-07)
     - repo: speedyapply/2027-SWE-College-Jobs
       branch: main
+      format: markdown
 
     - repo: speedyapply/2027-AI-College-Jobs
       branch: main
+      format: markdown
