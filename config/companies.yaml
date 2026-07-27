@@ -1,75 +1,75 @@
 companies:                                                                                                                                             
     - name: Stripe                                                                                                                                       
       platform: greenhouse                                                                                                                               
-      slug: stripe                                                                                                                                       
-      verified: false                                                                                                                                    
+      slug: stripe
+      verified: true                                                                                                                                    
 
     - name: Databricks
       platform: greenhouse
       slug: databricks
-      verified: false
+      verified: true
 
     - name: Figma
       platform: greenhouse
       slug: figma
-      verified: false
+      verified: true
 
     - name: Ramp
-      platform: greenhouse
+      platform: ashby
       slug: ramp
-      verified: false
+      verified: true
 
     - name: Plaid
-      platform: greenhouse
+      platform: ashby
       slug: plaid
-      verified: false
+      verified: true
 
     - name: Notion
-      platform: lever
+      platform: ashby
       slug: notion
-      verified: false
+      verified: true
 
     - name: Anduril
       platform: greenhouse
       slug: andurilindustries
-      verified: false
+      verified: true
 
     - name: Scale AI
-      platform: ashby
+      platform: greenhouse
       slug: scaleai
-      verified: false
+      verified: true
 
     - name: Cloudflare
       platform: greenhouse
       slug: cloudflare
-      verified: false
+      verified: true
 
     - name: Anthropic
       platform: greenhouse
       slug: anthropic
-      verified: false
+      verified: true
 
     - name: OpenAI
-      platform: greenhouse
+      platform: ashby
       slug: openai
-      verified: false
+      verified: true
 
     - name: Confluent
-      platform: greenhouse
+      platform: ashby
       slug: confluent
-      verified: false
+      verified: true
 
     - name: Palantir
-      platform: greenhouse
+      platform: lever
       slug: palantir
-      verified: false
+      verified: true
 
     - name: Airbnb
       platform: greenhouse
       slug: airbnb
-      verified: false
+      verified: true
 
     - name: DoorDash
       platform: greenhouse
-      slug: doordash
-      verified: false
+      slug: doordashusa
+      verified: true

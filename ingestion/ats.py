@@ -78,7 +78,7 @@ def fetch_lever(company: str, slug: str) -> list[Posting]:
 def fetch_ashby(company: str, slug: str) -> list[Posting]:
     url = f"https://api.ashbyhq.com/posting-api/job-board/{slug}"
     try:
-        resp = requests.post(url, timeout=10)
+        resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         jobs = resp.json().get("jobs", [])
         postings = []
