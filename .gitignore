@@ -1,0 +1,11 @@
+# secrets
+.env
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# local funnel state / outputs
+output/seen_ids.json

@@ -1,3 +1,8 @@
 requests
 beautifulsoup4
 pyyaml
+python-dotenv
+numpy
+google-generativeai
+cerebras-cloud-sdk
+groq
