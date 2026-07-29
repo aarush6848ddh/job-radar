@@ -1,0 +1,20 @@
+# The "query" vector source for Stage 2 embedding filter.
+# Write natural prose describing your ideal role - embeddings capture meaning,
+# so full sentences beat keyword lists.
+profile: >
+  A junior computer science student concentrating in artificial intelligence,
+  targeting software engineering and AI/ML engineering internships for
+  summer 2027. Strong hands-on experience building production LLM systems,
+  including a retrieval-augmented generation chatbot deployed on Azure AI
+  Foundry, an event-driven job discovery pipeline on AWS Lambda, and an
+  upcoming forward deployed engineering co-op on IBM's Z mainframe platform.
+  Comfortable with Python, cloud infrastructure like AWS and Azure, LLM
+  APIs, vector search, and backend systems. Interested in roles building
+  agentic systems, retrieval pipelines, or general backend and infrastructure
+  engineering at technology companies, quantitative finance firms, or banks.
+  Not interested in hardware engineering, pure data analyst roles, sales,
+  or research positions requiring a PhD.
+
+# Cosine similarity cutoff. Postings scoring below this are dropped.
+# Start at 0.35, tune after you see real scores.
+threshold: 0.35
