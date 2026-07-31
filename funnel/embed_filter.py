@@ -57,15 +57,28 @@ def embed_and_filter(postings: list[dict]) -> list[dict]:
     with open(PROFILE_PATH) as f:
         threshold = yaml.safe_load(f)["threshold"]
     
+    # Phase A: build every doc_text, then embed them all in batches
+    doc_texts = [
+        f"{p['title']} at {p['company']}. {clean_description(p['raw_description'])}"
+        for p in postings
+    ]
+    doc_vecs = embed_batch(doc_texts, "RETRIEVAL_DOCUMENT")
+
+    # Phase B: score + filter (no API calls in this loop anymore)
     kept = []
-    for p in postings:
-        doc_text = f"{p['title']} at {p['company']}. {clean_description(p['raw_description'])}"
-        doc_vec = embed_text(doc_text, "RETRIEVAL_DOCUMENT")
+    for p, doc_vec in zip(postings, doc_vecs):
         score = cosine_similarity(profile_vec, doc_vec)
         if score >= threshold:
-            p["embed_score"] = round(float(score), 4)  # float() -> plain python, not np.float
+            p["embed_score"] = round(float(score), 4)
             kept.append(p)
 
     kept.sort(key=lambda x: x["embed_score"], reverse=True)
     return kept
-    
+
+def embed_batch(texts: list[str], task_type: str, batch_size: int = 50) -> list[list[float]]:
+    vectors = []
+    for i in range (0, len(texts), batch_size):
+        chunk = texts[i:i + batch_size]
+        result = genai.embed_content(model=EMBED_MODEL, content=chunk, task_type=task_type, output_dimensionality=768)
+        vectors.extend(result["embedding"])
+    return vectors
