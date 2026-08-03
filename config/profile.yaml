@@ -17,4 +17,4 @@ profile: >
 
 # Cosine similarity cutoff. Postings scoring below this are dropped.
 # Start at 0.35, tune after you see real scores.
-threshold: 0.35
+threshold: 0.60
