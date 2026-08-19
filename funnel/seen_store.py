@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from datetime import datetime, timezone
 
+# Local JSON stand-in for DynamoDB (Phase 2 has no AWS yet): maps posting id -> first-seen timestamp.
 class SeenStore:
     def __init__(self, path: str = "output/seen_ids.json"):
         self.path = Path(path)
@@ -15,6 +16,7 @@ class SeenStore:
         return posting_id in self._seen
 
     def mark_seen(self, posting_id: str) -> None:
+        # Store first-seen timestamp (not just a bool) so we can audit when a posting was surfaced.
         self._seen[posting_id] = datetime.now(timezone.utc).isoformat()
         self._save()
 

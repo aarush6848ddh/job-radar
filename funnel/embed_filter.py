@@ -22,6 +22,7 @@ def clean_description(raw: str, max_chars: int = 2000) -> str:
     unescaped = html.unescape(raw)
     text = BeautifulSoup(unescaped, "html.parser").get_text(separator=" ")
     text = " ".join(text.split())
+    # Truncate to cap embedding token cost. JD tails are boilerplate (EEO/legal); the signal sits up top.
     return text[:max_chars]
 
 def embed_text(text: str, task_type: str) ->  list[float]:
@@ -43,6 +44,7 @@ def load_profile_vector() -> list[float]:
         if cached.get("hash") == current_hash:
             return cached["vector"]
 
+    # Profile is the "query" side of asymmetric retrieval; postings are embedded as RETRIEVAL_DOCUMENT.
     vector = embed_text(profile_text, "RETRIEVAL_QUERY")
     cache.parent.mkdir(parents=True, exist_ok=True)
     with open(cache, "w") as f:
@@ -80,6 +82,8 @@ def embed_batch(texts: list[str], task_type: str, batch_size: int = 50) -> list[
         chunk = texts[i:i + batch_size]
         result = genai.embed_content(model=EMBED_MODEL, content=chunk, task_type=task_type, output_dimensionality=768)
         vectors.extend(result["embedding"])
+        # Gemini free tier counts quota per ITEM (not per request), so batching alone can't dodge the
+        # 100/min cap. Sleep between batches to stay under it; skip the sleep after the final chunk.
         if i + batch_size < len(texts):
             time.sleep(60)
     return vectors
@@ -99,6 +103,7 @@ def load_doc_vectors(postings: list[dict]) -> dict[str, list[float]]:
             f"{p['title']} at {p['company']}. {clean_description(p['raw_description'])}"
             for p in missing_postings
         ]
+        # Postings are the "document" side of asymmetric retrieval (profile is RETRIEVAL_QUERY).
         new_vectors = embed_batch(missing_texts, "RETRIEVAL_DOCUMENT")
         for p, vec in zip(missing_postings, new_vectors):
             cache[p["id"]] = vec

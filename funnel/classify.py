@@ -20,6 +20,7 @@ def _cache_key(posting: dict, profile_text: str) -> str:
     return _hash(posting["id"] + profile_text)
 
 def classify_one(posting: dict, profile_text: str) -> tuple[bool, str]:
+    # Trim to 1000 chars here (Stage 2 embeds the full 2000) to cut tokens under Groq's daily token cap.
     posting_text = (
         f"{posting['title']} at {posting['company']}. "
         f"{clean_description(posting['raw_description'], max_chars=1000)}"
@@ -41,7 +42,7 @@ def classify_one(posting: dict, profile_text: str) -> tuple[bool, str]:
     resp = client.chat.completions.create(
         model=MODEL,
         messages=messages,
-        temperature=0,
+        temperature=0,  # deterministic output so the id+profile cache key maps to a stable result
         response_format={"type": "json_object"},
     )
 
