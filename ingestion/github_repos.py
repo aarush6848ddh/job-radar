@@ -1,6 +1,8 @@
-import re 
+import re
 import requests
 import logging
+from datetime import datetime, timezone, timedelta
+from typing import Optional
 from bs4 import BeautifulSoup
 from schema import Posting, make_posting_id
 from ingestion.ats import _title_matches
@@ -20,6 +22,24 @@ def _clean(text: str) -> str:
 def _extract_link(cell) -> str:
     tag = cell.find("a", href=re.compile(r'^https?://'))
     return tag["href"] if tag else ""
+
+
+# speedyapply's Age column holds whole-day relative ages: "0d", "3d", "114d".
+_AGE_RE = re.compile(r"^\s*(\d+)\s*d\s*$")
+
+
+def _age_to_posted_at(cells: list[str]) -> Optional[str]:
+    # Age is the last column, but layout varies (Salary is sometimes dropped),
+    # so scan cells from the RIGHT for the first one matching _AGE_RE instead
+    # of hardcoding an index. Return canonical ISO 8601 UTC, or None if no
+    # parseable age cell (caller logs + the recency filter drops it).
+    for cell in reversed(cells):
+        m = _AGE_RE.match(_clean(cell))
+        if m:
+            days = int(m.group(1))
+            return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    return None
+    
 
 def _fetch_readme(repo: str, branch: str) -> str:
     url = f"https://raw.githubusercontent.com/{repo}/{branch}/README.md"
@@ -110,7 +130,7 @@ def _parse_markdown_table(md: str, repo: str) -> list[Posting]:
             url=url,
             source="github_repo",
             source_detail=repo,
-            posted_at=None,
+            posted_at=_age_to_posted_at(cells),
             raw_description="",
         ))
     return postings

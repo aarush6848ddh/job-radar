@@ -6,6 +6,7 @@ import yaml
 
 from ingestion.ats import fetch_greenhouse, fetch_lever, fetch_ashby
 from ingestion.github_repos import fetch_github_repos
+from datetime import datetime, timezone, timedelta
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,6 +19,9 @@ FETCHERS = {
     "lever": fetch_lever,
     "ashby": fetch_ashby,
 }
+
+WINDOW_HOURS = 24   # module constant so you can retune to 48 freely
+
 
 def load_yaml(path: str) -> dict:
     with open(path) as f:
@@ -53,6 +57,15 @@ def write_jsonl(postings: list, path: str) -> None:
         for p in postings:
             f.write(p.to_json() + "\n")
 
+def is_recent(posting) -> bool:
+    val = posting.posted_at
+    if val is None:
+        return False
+    dt = datetime.fromisoformat(val)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - dt) <= timedelta(hours=WINDOW_HOURS)
+
 def main():
     companies = load_yaml("config/companies.yaml")["companies"]
     repos = load_yaml("config/repos.yaml")["repos"]
@@ -60,6 +73,10 @@ def main():
     all_postings = fetch_all_ats(companies) + fetch_github_repos(repos)
     unique = dedup(all_postings)
     unique = [p for p in unique if is_target_cycle(p.title)]
+    undated = [p for p in unique if p.posted_at is None]
+    recent = [p for p in unique if is_recent(p)]
+    logger.info("recency: kept %d, dropped %d (undated %d)", len(recent), len(unique) - len(recent), len(undated))
+    unique = recent
 
     logger.info("Fetched %d postings, %d unique", len(all_postings), len(unique))
     write_jsonl(unique, "output/postings.jsonl")

@@ -1,6 +1,7 @@
 import re
 import requests
 import logging
+from datetime import datetime, timezone
 from schema import Posting, make_posting_id
 
 # ATS fetchers - one function per platform (Greenhouse, Lever, Ashby).
@@ -58,6 +59,9 @@ def fetch_lever(company: str, slug: str) -> list[Posting]:
             if not _title_matches(title):
                 continue
             location = job.get("categories", {}).get("location", "")
+            # createdAt is epoch MILLIS; normalize to canonical ISO 8601 UTC, or None
+            ms = job.get("createdAt")
+            posted_at = datetime.fromtimestamp(ms / 1000, tz=timezone.utc).isoformat() if ms else None
             posting = Posting(
                 id=make_posting_id(company, title, location),
                 company=company,
@@ -66,7 +70,7 @@ def fetch_lever(company: str, slug: str) -> list[Posting]:
                 url=job.get("hostedUrl", ""),
                 source="lever",
                 source_detail=slug,
-                posted_at=job.get("createdAt"),
+                posted_at=posted_at,
                 raw_description=job.get("descriptionPlain", ""),
             )
             postings.append(posting)
