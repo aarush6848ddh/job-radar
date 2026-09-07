@@ -6,3 +6,6 @@ numpy
 google-generativeai
 cerebras-cloud-sdk
 groq
+boto3
+gspread
+google-auth

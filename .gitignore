@@ -1,5 +1,13 @@
 # secrets
 .env
+*.pem
+*.key
+# cloud service-account / credential keys (Google, AWS, etc.)
+*service-account*.json
+*credentials*.json
+jobradar-*.json
+gcp-*.json
+*-key.json
 
 # python
 __pycache__/
@@ -7,5 +15,13 @@ __pycache__/
 .venv/
 venv/
 
-# local funnel state / outputs
-output/seen_ids.json
+# lambda build artifacts (vendored deps, rebuildable)
+build/
+
+# local funnel state / outputs (all regenerable caches)
+output/
+
+# os / editor cruft
+.DS_Store
+.vscode/
+.idea/

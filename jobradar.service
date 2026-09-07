@@ -1,0 +1,13 @@
+[Unit]
+Description=JobRadar chain: fetch S3 postings -> scoring funnel -> deliver to Sheets
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Absolute path required by systemd. Replace with the repo path on the M720q,
+# e.g. /home/aarush/job-radar/run_chain.sh
+ExecStart=%h/job-radar/run_chain.sh
+
+# stdout/stderr are captured by the journal automatically:
+#   journalctl --user -u jobradar.service

@@ -1,0 +1,14 @@
+[Unit]
+Description=Run the JobRadar chain every 6h, 15 min past the hour
+
+[Timer]
+# Fires at 00:15, 06:15, 12:15, 18:15 - ~15 min after each 6-hour Lambda
+# ingestion window so the fresh S3 object is already written.
+OnCalendar=*-*-* 00/6:15:00
+
+# If the M720q was powered off at a scheduled time, run once on next boot
+# instead of skipping the missed window.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
