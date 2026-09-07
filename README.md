@@ -14,22 +14,44 @@ appends the survivors to a spreadsheet ranked by fit.
 
 ## Architecture
 
-```
-                         AWS (cloud, always-on)
-  EventBridge (rate 6h) ──▶ Lambda: fetch ATS + GitHub repos
-                                │  dedup ▸ 2027-cycle filter ▸ 24h recency filter
-                                ▼
-                      S3  s3://jobradar-raw-postings-aarushsingh/
-                          raw-postings/<timestamp>.jsonl   (7-day lifecycle)
-                                │
-        ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
-                                ▼            M720q home server (systemd timer)
-                     fetch_latest_postings.py   (boto3, read-only IAM user)
-                                │  output/postings.jsonl
-                                ▼
-                     run_funnel_local.py  ── the 4-stage funnel ──▶ output/ranked.jsonl
-                                ▼
-                     deliver_to_sheets.py   (gspread) ──▶ Google Sheet
+```mermaid
+flowchart LR
+    subgraph SRC["Sources"]
+        GH["Greenhouse / Lever / Ashby APIs"]
+        REPOS["GitHub repos (speedyapply 2027)"]
+    end
+
+    subgraph AWS["AWS Cloud (free tier)"]
+        EB["EventBridge rate 6h"] -->|triggers| ING["Ingestion Lambda"]
+        ING -->|"dedup ▸ 2027-cycle ▸ 24h recency"| ING2["filtered postings"]
+        ING2 -->|writes JSONL| S3["S3 raw-postings/ (7-day lifecycle)"]
+        CW["Budget alert $0.01"]
+    end
+
+    subgraph BOX["M720q home server (systemd user timer, 6h @ :15)"]
+        FETCH["fetch_latest_postings.py (boto3, read-only IAM)"]
+        subgraph FUNNEL["run_funnel_local.py — scoring funnel"]
+            F1["1 Seen-store (local JSON)"] -->|new| F2["2 Embed — Gemini cosine, thr 0.60"]
+            F2 -->|"similar"| F3["3 Classify — Groq gpt-oss-120b (eligibility gate)"]
+            F3 -->|"eligible"| F4["4 Score — Groq gpt-oss-20b (fit/interest/seniority)"]
+        end
+        DELIVER["deliver_to_sheets.py (gspread)"]
+        DROP["Dropped: already-seen / low-sim / ineligible"]
+        FETCH --> F1
+        F4 --> DELIVER
+        F1 -.-> DROP
+        F2 -.-> DROP
+        F3 -.-> DROP
+    end
+
+    subgraph OUT["Output"]
+        SHEET["Google Sheet (append-log, ranked)"]
+    end
+
+    GH --> ING
+    REPOS --> ING
+    S3 -->|"timer-driven pull (latest object)"| FETCH
+    DELIVER -->|append rows| SHEET
 ```
 
 The S3 object **is** the queue - there is no SQS. Ingestion is decoupled from
