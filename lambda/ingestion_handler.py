@@ -4,7 +4,7 @@ from pathlib import Path
 
 import boto3  
 
-from run_local import fetch_all_ats, dedup, is_target_cycle, is_recent, load_yaml
+from run_local import fetch_all_ats, dedup, is_target_cycle, is_recent, is_us_location, load_yaml
 from ingestion.github_repos import fetch_github_repos
 
 # Configs are bundled with the deployment zip. Resolve them relative to THIS
@@ -26,6 +26,7 @@ def handler(event, context):
     unique = dedup(all_postings)
     unique = [p for p in unique if is_target_cycle(p.title)]
     unique = [p for p in unique if is_recent(p)]
+    unique = [p for p in unique if is_us_location(p)]
 
     # 4. Serialize to JSONL (one Posting per line) so the M720q side is a verbatim passthrough download.
     body = "\n".join(p.to_json() for p in unique)

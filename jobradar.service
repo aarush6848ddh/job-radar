@@ -5,6 +5,8 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+# Deps live in a project venv (system python3 has none), so point the chain at it.
+Environment=JOBRADAR_PYTHON=%h/job-radar/.venv/bin/python
 # Absolute path required by systemd. Replace with the repo path on the M720q,
 # e.g. /home/aarush/job-radar/run_chain.sh
 ExecStart=%h/job-radar/run_chain.sh

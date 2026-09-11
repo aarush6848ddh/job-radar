@@ -66,6 +66,48 @@ def is_recent(posting) -> bool:
         dt = dt.replace(tzinfo=timezone.utc)
     return (datetime.now(timezone.utc) - dt) <= timedelta(hours=WINDOW_HOURS)
 
+# 50 states + DC. Data, not logic.
+_US_STATES = {
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID",
+    "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS",
+    "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK",
+    "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV",
+    "WI", "WY", "DC",
+}
+# Comma-anchored state code, e.g. "Austin, TX". The comma is what stops a
+# stray 2-letter token (or a non-US state like "KA") from matching.
+_US_STATE_RE = re.compile(r",\s*(?:" + "|".join(sorted(_US_STATES)) + r")\b", re.IGNORECASE)
+# Explicit country. Word-bounded, never bare "US" (too many in-word hits).
+_US_COUNTRY_RE = re.compile(r"\b(?:united states|usa|u\.s\.a\.?|u\.s\.)\b", re.IGNORECASE)
+# Hub-city allowlist for the bare-city case (no state code), e.g.
+# "San Francisco, Seattle, New York City". Need not be exhaustive: obscure US
+# cities always arrive as "City, ST", so only hubs ever appear bare.
+_US_CITY_RE = re.compile(r"\b(?:" + "|".join([
+    "san francisco", "seattle", "new york", "nyc", "los angeles", "chicago",
+    "boston", "austin", "washington", "denver", "atlanta", "dallas", "houston",
+    "philadelphia", "san diego", "san jose", "portland", "pittsburgh",
+    "minneapolis", "miami",
+]) + r")\b", re.IGNORECASE)
+# Non-US blocklist. Word-bounded so "uk" can't match inside "Milwaukee" etc.
+_NON_US_RE = re.compile(r"\b(?:" + "|".join([
+    "dublin", "london", "singapore", "bucharest", "bengaluru", "bangalore",
+    "toronto", "vancouver", "montreal", "canada", "india", "ireland", "uk",
+    "united kingdom", "berlin", "paris", "amsterdam", "sydney", "tokyo",
+    "tel aviv", "warsaw", "madrid", "munich", "zurich", "hong kong",
+    "mexico city", "sao paulo",
+]) + r")\b", re.IGNORECASE)
+
+def is_us_location(posting) -> bool:
+    loc = posting.location or ""
+    # 1. Positive US signal wins first (resolves "Dublin, OH" / "Ontario, CA").
+    if _US_STATE_RE.search(loc) or _US_COUNTRY_RE.search(loc) or _US_CITY_RE.search(loc):
+        return True
+    # 2. Explicit non-US signal.
+    if _NON_US_RE.search(loc):
+        return False
+    # 3. Ambiguous ("Remote", "N/A", empty) -> drop, same call as undated.
+    return False
+
 def main():
     companies = load_yaml("config/companies.yaml")["companies"]
     repos = load_yaml("config/repos.yaml")["repos"]
@@ -77,6 +119,10 @@ def main():
     recent = [p for p in unique if is_recent(p)]
     logger.info("recency: kept %d, dropped %d (undated %d)", len(recent), len(unique) - len(recent), len(undated))
     unique = recent
+
+    us = [p for p in unique if is_us_location(p)]
+    logger.info("us: kept %d, dropped %d", len(us), len(unique) - len(us))
+    unique = us
 
     logger.info("Fetched %d postings, %d unique", len(all_postings), len(unique))
     write_jsonl(unique, "output/postings.jsonl")
