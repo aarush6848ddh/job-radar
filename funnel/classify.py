@@ -51,6 +51,16 @@ def classify_one(posting: dict, profile_text: str) -> tuple[bool, str]:
     reason = parsed["reason"]
     return decision, reason
 
+SAVE_EVERY = 25  # incremental cache flush cadence; a mid-run crash keeps completed calls
+
+def _save_cache(path: Path, cache: dict) -> None:
+    # Atomic write (temp + replace) so an interrupted flush can't corrupt the cache.
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    with open(tmp, "w") as f:
+        json.dump(cache, f)
+    os.replace(tmp, path)
+
 def classify(postings: list[dict]) -> list[dict]:
     with open(PROFILE_PATH) as f:
         profile_text = yaml.safe_load(f)["profile"]
@@ -63,6 +73,7 @@ def classify(postings: list[dict]) -> list[dict]:
         cache = {}
 
     kept = []
+    since_save = 0
     for p in postings:
         key = _cache_key(p, profile_text)
         if key in cache:
@@ -70,6 +81,10 @@ def classify(postings: list[dict]) -> list[dict]:
         else:
             decision, reason = classify_one(p, profile_text)
             cache[key] = (decision, reason)
+            since_save += 1
+            if since_save >= SAVE_EVERY:
+                _save_cache(path, cache)  # don't lose a long backfill to a mid-run crash
+                since_save = 0
             time.sleep(5)  # throttle real calls only; TPM 8K / ~550 tok = ~14/min
 
         p["classify_pass"] = decision
@@ -77,8 +92,5 @@ def classify(postings: list[dict]) -> list[dict]:
         if decision:
             kept.append(p)
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(cache, f)
-
+    _save_cache(path, cache)
     return kept

@@ -1,10 +1,11 @@
 import json
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import yaml
 
-from ingestion.ats import fetch_greenhouse, fetch_lever, fetch_ashby
+from ingestion.ats import fetch_greenhouse, fetch_lever, fetch_ashby, hydrate_greenhouse
 from ingestion.github_repos import fetch_github_repos
 from datetime import datetime, timezone, timedelta
 
@@ -21,20 +22,27 @@ FETCHERS = {
 }
 
 WINDOW_HOURS = 24   # module constant so you can retune to 48 freely
+FETCH_WORKERS = 24  # ATS fetches are I/O-bound; sequential over thousands of boards is a wall
 
 
 def load_yaml(path: str) -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
 
+def _fetch_one(c: dict) -> list:
+    fetcher = FETCHERS.get(c["platform"])
+    if not fetcher:
+        logger.warning("Unknown platform '%s' for company '%s', skipping", c["platform"], c["name"])
+        return []
+    return fetcher(c["name"], c["slug"])
+
 def fetch_all_ats(companies: list[dict]) -> list:
+    # Parallel: at thousands of companies a sequential loop cannot finish inside the
+    # Lambda timeout. Each fetcher swallows its own errors and returns [].
     postings = []
-    for c in companies:
-        fetcher = FETCHERS.get(c["platform"])
-        if not fetcher:
-            logger.warning("Unknown platform '%s' for company '%s', skipping", c["platform"], c["name"])
-            continue
-        postings.extend(fetcher(c["name"], c["slug"]))
+    with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as ex:
+        for res in ex.map(_fetch_one, companies):
+            postings.extend(res)
     return postings
 
 # keep 2027 explicitly; otherwise drop anything naming an older cycle (2010-2026)
@@ -123,6 +131,8 @@ def main():
     us = [p for p in unique if is_us_location(p)]
     logger.info("us: kept %d, dropped %d", len(us), len(unique) - len(us))
     unique = us
+
+    hydrate_greenhouse(unique)  # fill deferred greenhouse descriptions for survivors only
 
     logger.info("Fetched %d postings, %d unique", len(all_postings), len(unique))
     write_jsonl(unique, "output/postings.jsonl")

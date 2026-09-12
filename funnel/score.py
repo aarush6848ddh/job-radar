@@ -74,6 +74,16 @@ def score_one(posting: dict, profile_text: str) -> dict:
         "reason": reason,
     }
 
+SAVE_EVERY = 25  # incremental cache flush cadence; a mid-run crash keeps completed calls
+
+def _save_cache(path: Path, cache: dict) -> None:
+    # Atomic write (temp + replace) so an interrupted flush can't corrupt the cache.
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    with open(tmp, "w") as f:
+        json.dump(cache, f)
+    os.replace(tmp, path)
+
 def score(postings: list[dict]) -> list[dict]:
     with open(PROFILE_PATH) as f:
         profile_text = yaml.safe_load(f)["profile"]
@@ -85,6 +95,7 @@ def score(postings: list[dict]) -> list[dict]:
     else:
         cache = {}
 
+    since_save = 0
     for p in postings:
         key = _cache_key(p, profile_text)
         if key in cache:
@@ -92,13 +103,14 @@ def score(postings: list[dict]) -> list[dict]:
         else:
             result = score_one(p, profile_text)
             cache[key] = result
+            since_save += 1
+            if since_save >= SAVE_EVERY:
+                _save_cache(path, cache)  # don't lose a long backfill to a mid-run crash
+                since_save = 0
             time.sleep(5)   # throttle real calls only (8K TPM / ~550 tok)
 
         # Nest under one key so Stage 4 output doesn't collide with embed_score / classify_reason.
         p["score"] = result
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(cache, f)
-
-    return sorted(postings, key=lambda p: p["score"]["total"], reverse=True)     
+    _save_cache(path, cache)
+    return sorted(postings, key=lambda p: p["score"]["total"], reverse=True)

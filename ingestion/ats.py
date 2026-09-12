@@ -1,6 +1,7 @@
 import re
 import requests
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from schema import Posting, make_posting_id
 
@@ -18,7 +19,10 @@ def _title_matches(title: str) -> bool:
     return bool(_TITLE_RE.search(title))
 
 def fetch_greenhouse(company: str, slug: str) -> list[Posting]:
-    url = f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
+    # No content=true: the board list is fetched light (title/location/updated_at only).
+    # Descriptions are hydrated later via hydrate_greenhouse() for post-filter survivors
+    # only, so we don't download every job's full HTML across thousands of boards.
+    url = f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs"
     try:
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
@@ -38,13 +42,40 @@ def fetch_greenhouse(company: str, slug: str) -> list[Posting]:
                 source="greenhouse",
                 source_detail=slug,
                 posted_at=job.get("updated_at"),
-                raw_description=job.get("content", ""),
+                raw_description="",  # deferred; filled by hydrate_greenhouse()
             )
             postings.append(posting)
         return postings
     except requests.RequestException as e:
         logger.warning(f"{company}: Greenhouse fetch failed - {e}")
         return []
+
+
+_GH_JOB_ID_RE = re.compile(r"/jobs/(\d+)")
+
+def _hydrate_one(p: Posting) -> None:
+    # Greenhouse per-job endpoint returns the full description content for a single job.
+    m = _GH_JOB_ID_RE.search(p.url or "")
+    if not m:
+        return
+    url = f"https://boards-api.greenhouse.io/v1/boards/{p.source_detail}/jobs/{m.group(1)}"
+    try:
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        p.raw_description = resp.json().get("content", "")
+    except requests.RequestException as e:
+        logger.warning(f"{p.company}: Greenhouse content hydrate failed - {e}")
+
+def hydrate_greenhouse(postings: list[Posting]) -> None:
+    # Fill raw_description for greenhouse postings that had content deferred at list-fetch
+    # time. Call AFTER the recency/US filters so only the handful of survivors are hydrated.
+    # Mutates postings in place. Lever/Ashby carry descriptions in their list responses, so
+    # they need no hydration.
+    todo = [p for p in postings if p.source == "greenhouse" and not p.raw_description]
+    if not todo:
+        return
+    with ThreadPoolExecutor(max_workers=24) as ex:
+        list(ex.map(_hydrate_one, todo))
 
 
 def fetch_lever(company: str, slug: str) -> list[Posting]:

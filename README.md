@@ -5,8 +5,8 @@ career pages and community job boards, ranks them against a personal profile
 using a multi-stage embedding + LLM funnel, and delivers the best matches to a
 Google Sheet - end to end, on free tiers only.
 
-Every 6 hours a Lambda scrapes ~15 company ATS boards plus GitHub job repos,
-keeps only the last 24 hours of new postings, and drops them in S3. A home
+Every 6 hours a Lambda scrapes thousands of company ATS boards plus GitHub job
+repos, keeps only the last 24 hours of new US postings, and drops them in S3. A home
 server then pulls that batch, runs it through a four-stage relevance funnel, and
 appends the survivors to a spreadsheet ranked by fit.
 
@@ -95,7 +95,7 @@ Every expensive call is cached keyed by a stable id so re-runs are near-free:
 ```
 schema.py                    Posting dataclass + sha256 id hashing
 config/
-  companies.yaml             15 companies -> ATS platform + slug
+  companies.yaml             ~6,470 validated companies -> ATS platform + slug
   repos.yaml                 GitHub job-board repos to scrape
   profile.yaml               your ideal-role prose + Stage 2 threshold
 ingestion/
@@ -116,6 +116,23 @@ lambda/ingestion_handler.py  AWS Lambda ingestion entry point
 setup_aws.sh                 One-time AWS bootstrap (S3/IAM/Lambda/EventBridge)
 reader-policy.json           Least-privilege IAM policy for the S3 reader user
 ```
+
+---
+
+## Data sources & attribution
+
+The company-to-slug inventory in `config/companies.yaml` (~6,470 boards, every
+slug validated live against its ATS API) is built from two open-source
+inventories:
+
+- **[kalil0321/ats-scrapers](https://github.com/kalil0321/ats-scrapers)** -
+  MIT licensed (name, slug, and URL, so entries are attributable).
+- **[Feashliaa/job-board-aggregator](https://github.com/Feashliaa/job-board-aggregator)** -
+  the code is MIT, but the **board data is licensed CC-BY-NC 4.0**
+  (attribution + non-commercial). Slugs sourced only from this inventory are
+  labeled by their slug. This project's use is non-commercial (personal
+  internship search), which is within that license; anyone reusing this data
+  must preserve attribution and keep the use non-commercial.
 
 ---
 
@@ -218,9 +235,10 @@ funnel and delivery never run on stale data.
 - **Free tier only.** Gemini embeddings (daily-resetting quota, doc-vector cache
   makes cost near-zero), Groq LLMs (no card required), AWS free tier + zero-spend
   budget alarm, Google Sheets.
-- **24-hour recency filter** cuts ingestion volume at the source (~880 fetched ->
-  ~20 kept), which keeps the whole funnel comfortably under Groq's daily token
-  limits by construction.
+- **24-hour recency + US-only filters** cut ingestion volume at the source
+  (~4,600 fetched -> ~200 kept), which keeps the whole funnel comfortably under
+  Groq's daily token limits by construction - the Groq load is driven by fresh
+  posting volume, not company count, so scaling the board list is safe.
 - **Two Groq models on separate buckets** (120b for Stage 3, 20b for Stage 4) so
   a cold backfill doesn't exhaust a single per-model daily token quota.
 - **Append-log delivery.** Each run only emits newly-seen postings, so the sheet
