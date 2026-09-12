@@ -2,6 +2,9 @@
 Description=JobRadar chain: fetch S3 postings -> scoring funnel -> deliver to Sheets
 Wants=network-online.target
 After=network-online.target
+# On any non-zero exit (fetch/funnel/deliver), fire the notifier so a silent
+# failure becomes an email. %n passes this unit's name to the templated unit.
+OnFailure=jobradar-failure@%n.service
 
 [Service]
 Type=oneshot

@@ -1,0 +1,9 @@
+[Unit]
+Description=JobRadar failure notifier for %i (publishes recent journal to SNS)
+
+[Service]
+Type=oneshot
+# The box has no aws CLI, so publish via boto3 in the project venv, using the
+# least-privilege jobradar-alerter profile (sns:Publish on one topic only).
+# %i is the failed unit name, passed by OnFailure=jobradar-failure@%n.service.
+ExecStart=%h/job-radar/.venv/bin/python %h/job-radar/notify_failure.py %i
