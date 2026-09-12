@@ -15,32 +15,34 @@ appends the survivors to a spreadsheet ranked by fit.
 ## Architecture
 
 ```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 30, "rankSpacing": 40}}}%%
 flowchart TB
     subgraph SRC["Sources"]
         direction LR
-        GH["Greenhouse / Lever / Ashby APIs"]
-        REPOS["GitHub repos (speedyapply 2027)"]
+        GH["ATS APIs<br/>~6,470 boards"]
+        REPOS["GitHub repos"]
     end
 
-    subgraph AWS["AWS Cloud (free tier)"]
-        EB["EventBridge — rate 6h"] -->|triggers| ING["Ingestion Lambda"]
-        ING -->|"dedup ▸ 2027-cycle ▸ 24h recency"| S3["S3 raw-postings/<br/>(7-day lifecycle)"]
-        CW["Budget alert $0.01"]
+    subgraph AWS["AWS (free tier)"]
+        EB["EventBridge 6h"] -->|triggers| ING["Ingestion Lambda<br/>24-worker fetch"]
+        ING -->|"dedup ▸ 2027 ▸ 24h ▸ US ▸ hydrate"| S3["S3 raw-postings<br/>7d lifecycle"]
+        ING -.->|"errors ≥ 1"| ALARM["CloudWatch alarm"]
+        ALARM --> SNS["SNS jobradar-alerts"]
+        BUDGET["Budget $0.01"]
     end
 
-    subgraph BOX["M720q home server — systemd user timer (6h @ :15)"]
-        FETCH["fetch_latest_postings.py<br/>(boto3, read-only IAM)"]
-        subgraph FUNNEL["run_funnel_local.py — scoring funnel"]
-            F1["Stage 1 — Seen-store<br/>(local JSON dedup)"]
-            F2["Stage 2 — Embed<br/>Gemini cosine, thr 0.60"]
-            F3["Stage 3 — Classify<br/>Groq gpt-oss-120b<br/>(eligibility gate)"]
-            F4["Stage 4 — Score<br/>Groq gpt-oss-20b<br/>(fit / interest / seniority)"]
-            F1 -->|new| F2
-            F2 -->|similar| F3
-            F3 -->|eligible| F4
+    subgraph BOX["M720q — systemd timer (6h @ :15)"]
+        FETCH["fetch_latest_postings"]
+        subgraph FUNNEL["scoring funnel"]
+            F1["1 Seen-store"]
+            F2["2 Embed · Gemini"]
+            F3["3 Classify · Groq 120b"]
+            F4["4 Score · Groq 20b"]
+            F1 -->|new| F2 -->|similar| F3 -->|eligible| F4
         end
-        DELIVER["deliver_to_sheets.py<br/>(gspread)"]
-        DROP["Dropped:<br/>already-seen / low-sim / ineligible"]
+        DELIVER["deliver_to_sheets"]
+        DROP["Dropped"]
+        NOTIFY["notify_failure<br/>OnFailure"]
         FETCH --> F1
         F4 --> DELIVER
         F1 -.-> DROP
@@ -48,12 +50,17 @@ flowchart TB
         F3 -.-> DROP
     end
 
-    SHEET["Google Sheet<br/>(append-log, ranked)"]
+    SHEET["Google Sheet"]
+    EMAIL["Inbox — alerts"]
 
     GH --> ING
     REPOS --> ING
-    S3 -->|"timer-driven pull (latest object)"| FETCH
-    DELIVER -->|append rows| SHEET
+    S3 -->|latest| FETCH
+    DELIVER -->|append| SHEET
+    FETCH -.-> NOTIFY
+    DELIVER -.->|"non-zero exit"| NOTIFY
+    NOTIFY -->|"sns:Publish"| SNS
+    SNS -->|email| EMAIL
 ```
 
 The S3 object **is** the queue - there is no SQS. Ingestion is decoupled from
