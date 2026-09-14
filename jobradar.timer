@@ -1,10 +1,14 @@
 [Unit]
-Description=Run the JobRadar chain every 6h, 15 min past the hour
+Description=Run the JobRadar chain 4x/day during US business hours
 
 [Timer]
-# Fires at 00:15, 06:15, 12:15, 18:15 - ~15 min after each 6-hour Lambda
-# ingestion window so the fresh S3 object is already written.
-OnCalendar=*-*-* 00/6:15:00
+# Fires 13:30, 17:30, 21:30, 01:30 UTC - 30 min after each Lambda ingestion
+# (13/17/21/01 UTC) so the fresh S3 object is already written. Box TZ is UTC.
+# In ET these are 9:30am/1:30pm/5:30pm/9:30pm (EDT); they intentionally shift
+# -1h under EST (Nov-Mar). This DST drift is by design, not a bug - the 12h
+# overnight gap has huge margin against the 24h recency filter. Runs are
+# concentrated in US posting hours since internships are not posted overnight.
+OnCalendar=*-*-* 13,17,21,01:30:00
 
 # If the M720q was powered off at a scheduled time, run once on next boot
 # instead of skipping the missed window.
